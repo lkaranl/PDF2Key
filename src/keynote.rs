@@ -40,14 +40,24 @@ impl KeynoteBuilder {
             .collect();
         let image_list_str = image_list.join(", ");
 
-        // AppleScript robusto com tratamento de alias
+        // AppleScript robusto - usa 'launch' para rodar em background
         let applescript = format!(
             r#"
 set imageList to {{{image_list}}}
 set outputPath to "{output_path}"
 
+-- Verifica se Keynote já está rodando
+set wasRunning to false
+tell application "System Events"
+    if exists (processes where name is "Keynote") then
+        set wasRunning to true
+    end if
+end tell
+
+-- Inicia Keynote em background (sem abrir janelas)
+launch application "Keynote"
+
 tell application "Keynote"
-    -- activate -- Removido para não trazer para frente
     set theDoc to make new document
     
     set slideWidth to width of theDoc
@@ -55,8 +65,6 @@ tell application "Keynote"
     
     repeat with i from 1 to count of imageList
         set imagePath to item i of imageList
-        
-        -- Converte para alias para garantir acesso
         set imageFile to (POSIX file imagePath) as alias
         
         if i is 1 then
@@ -74,8 +82,13 @@ tell application "Keynote"
     end repeat
     
     save theDoc in POSIX file outputPath
-    -- close theDoc
+    close theDoc
 end tell
+
+-- Se Keynote não estava rodando antes, fecha ele
+if not wasRunning then
+    tell application "Keynote" to quit
+end if
 "#,
             image_list = image_list_str,
             output_path = output_path_str
