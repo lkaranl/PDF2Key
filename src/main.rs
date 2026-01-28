@@ -13,11 +13,43 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::process::Command;
 
+// Paleta de cores premium (Dark Theme First)
+#[allow(dead_code)]
+struct AppColors;
+
+impl AppColors {
+    // Fundo Principal (Deep Blue/Black)
+    const BG_MAIN: egui::Color32 = egui::Color32::from_rgb(13, 17, 23); // GitHub Dark Dimmed style
+    
+    // Cores primárias (Electric Blue)
+    const PRIMARY: egui::Color32 = egui::Color32::from_rgb(56, 189, 248); // Light Blue 400
+    const PRIMARY_HOVER: egui::Color32 = egui::Color32::from_rgb(14, 165, 233); // Sky 500
+    const PRIMARY_ACTIVE: egui::Color32 = egui::Color32::from_rgb(2, 132, 199); // Sky 600
+    
+    // Sucesso (Neon Green)
+    const SUCCESS: egui::Color32 = egui::Color32::from_rgb(74, 222, 128); // Green 400
+    const SUCCESS_BG: egui::Color32 = egui::Color32::from_rgb(20, 83, 45); // Green 900
+    
+    // Erro (Soft Red)
+    const ERROR: egui::Color32 = egui::Color32::from_rgb(248, 113, 113);
+    const ERROR_BG: egui::Color32 = egui::Color32::from_rgb(69, 10, 10);
+    
+    // Neutros
+    const TEXT_PRIMARY: egui::Color32 = egui::Color32::from_rgb(241, 245, 249); // Slate 100
+    const TEXT_SECONDARY: egui::Color32 = egui::Color32::from_rgb(148, 163, 184); // Slate 400
+    
+    const CARD_BG: egui::Color32 = egui::Color32::from_rgb(30, 41, 59); // Slate 800
+    const CARD_BORDER: egui::Color32 = egui::Color32::from_rgb(51, 65, 85); // Slate 700
+    const CARD_BORDER_HOVER: egui::Color32 = egui::Color32::from_rgb(71, 85, 105); // Slate 600
+    
+    const PROGRESS_BG: egui::Color32 = egui::Color32::from_rgb(51, 65, 85);
+}
+
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([550.0, 450.0])
-            .with_min_inner_size([500.0, 400.0])
+            .with_inner_size([600.0, 520.0])
+            .with_min_inner_size([550.0, 480.0])
             .with_title("PDF2Key")
             .with_resizable(true),
         ..Default::default()
@@ -27,22 +59,29 @@ fn main() -> eframe::Result<()> {
         "PDF2Key",
         options,
         Box::new(|cc| {
-            // Configura estilo visual clean
             let mut style = (*cc.egui_ctx.style()).clone();
+            
+            // Forçar Dark Mode
+            style.visuals = egui::Visuals::dark();
+            style.visuals.window_fill = AppColors::BG_MAIN;
+            style.visuals.panel_fill = AppColors::BG_MAIN;
             
             // Espaçamento e Layout
             style.spacing.item_spacing = egui::vec2(16.0, 16.0);
-            style.spacing.button_padding = egui::vec2(24.0, 12.0);
-            style.visuals.widgets.noninteractive.bg_stroke.width = 0.0;
+            style.spacing.button_padding = egui::vec2(24.0, 16.0);
             
-            // Fontes mais modernas e legíveis
+            // Cores Globais
+            style.visuals.widgets.noninteractive.fg_stroke.color = AppColors::TEXT_PRIMARY;
+            style.visuals.hyperlink_color = AppColors::PRIMARY;
+            
+            // Fontes
             style.text_styles.insert(
                 egui::TextStyle::Heading,
-                egui::FontId::new(26.0, egui::FontFamily::Proportional),
+                egui::FontId::new(32.0, egui::FontFamily::Proportional),
             );
             style.text_styles.insert(
                 egui::TextStyle::Body,
-                egui::FontId::new(15.0, egui::FontFamily::Proportional),
+                egui::FontId::new(16.0, egui::FontFamily::Proportional),
             );
             style.text_styles.insert(
                 egui::TextStyle::Button,
@@ -79,128 +118,198 @@ impl eframe::App for Pdf2KeyApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Centraliza verticalmente e horizontalmente com limite de largura
-            ui.vertical_centered(|ui| {
-                ui.set_max_width(450.0); // Limita largura para manter design coeso
-                ui.add_space(20.0);
-                
-                // Cabeçalho
-                ui.heading(egui::RichText::new("📄 PDF2Key").strong());
-                ui.label(egui::RichText::new("Suas apresentações, prontas em segundos.").color(egui::Color32::GRAY));
-                
-                ui.add_space(30.0);
-                
-                // Área de Upload (Card Grande)
-                let card_response = egui::Frame::group(ui.style())
-                    .inner_margin(30.0)
-                    .rounding(12.0)
-                    .stroke(egui::Stroke::new(1.5, egui::Color32::from_gray(200))) // Borda suave
-                    .fill(if ui.visuals().dark_mode { egui::Color32::from_gray(30) } else { egui::Color32::from_gray(250) })
-                    .show(ui, |ui| {
-                        ui.set_min_width(ui.available_width());
-                        ui.vertical_centered(|ui| {
-                            if let Some(path) = &self.pdf_path {
-                                ui.label(egui::RichText::new("✅ Arquivo Selecionado").color(egui::Color32::from_rgb(50, 180, 50)).strong());
-                                ui.add_space(8.0);
-                                ui.label(egui::RichText::new(path.file_name().unwrap_or_default().to_string_lossy())
-                                    .size(16.0)
-                                    .strong());
-                                ui.add_space(8.0);
-                                if ui.link("Escolher outro arquivo").clicked() {
-                                    self.select_pdf();
-                                }
-                            } else {
-                                ui.label(egui::RichText::new("📂").size(32.0));
-                                ui.add_space(8.0);
-                                ui.label(egui::RichText::new("Clique para selecionar").size(16.0).strong());
-                                ui.label(egui::RichText::new("Selecione um arquivo PDF").size(13.0).color(egui::Color32::GRAY));
-                            }
-                        });
-                    }).response;
-
-                // Clique no card inteiro ativa seleção
-                if self.pdf_path.is_none() && card_response.interact(egui::Sense::click()).clicked() {
-                     self.select_pdf();
-                }
-
-                ui.add_space(30.0);
-                
-                // Ação Principal
-                let is_converting = *self.is_converting.lock().unwrap();
-                let can_convert = self.pdf_path.is_some() && !is_converting;
-                let status = self.status.lock().unwrap().clone();
-
-                if is_converting {
-                     ui.add(egui::ProgressBar::new(status.progress)
-                        .show_percentage()
-                        .animate(true)
-                        .desired_width(ui.available_width()));
-                     ui.add_space(10.0);
-                     ui.label(egui::RichText::new(&status.message).small().color(egui::Color32::GRAY));
-                
-                } else if status.is_success {
-                    // Estado de Sucesso
-                    egui::Frame::none()
-                        .inner_margin(10.0)
-                        .fill(egui::Color32::from_rgb(230, 255, 230)) // Fundo verde claro
-                        .rounding(8.0)
-                        .show(ui, |ui| {
-                            ui.set_min_width(ui.available_width());
-                            ui.vertical_centered(|ui| {
-                                ui.label(egui::RichText::new("✅ Conversão Concluída!").color(egui::Color32::BLACK).strong());
-                            });
-                        });
+            // Removemos o scroll e ajustamos as margens para um fit perfeito
+            egui::Frame::none()
+                .fill(ui.visuals().window_fill()) 
+                .inner_margin(20.0) // Reduzi um pouco a margem externa
+                .show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.set_max_width(500.0);
+                        ui.add_space(10.0); // Espaço menor no topo
                         
-                    ui.add_space(20.0);
-                    
-                    // Botão Mostrar na Pasta
-                    let btn = egui::Button::new(egui::RichText::new("📂 Abrir Pasta do Arquivo").size(16.0))
-                        .min_size(egui::vec2(200.0, 45.0));
-                    
-                    if ui.add(btn).clicked() {
-                         if let Some(path) = &self.output_path {
-                             // Abre o Finder selecionando o arquivo
-                             let _ = Command::new("open")
-                                 .arg("-R")
-                                 .arg(path)
-                                 .spawn();
-                         }
-                    }
-                    
-                    ui.add_space(10.0);
-                    if ui.button("Converter outro arquivo").clicked() {
-                        self.pdf_path = None;
-                        self.output_path = None;
-                        let mut s = self.status.lock().unwrap();
-                        s.is_success = false;
-                        s.message = String::new();
-                    }
+                        // Header
+                        ui.label(
+                            egui::RichText::new("📄 PDF2Key")
+                                .size(36.0) // Leve redução
+                                .color(AppColors::PRIMARY)
+                                .strong()
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            egui::RichText::new("Transforme seus PDFs em Keynote rapidamente.")
+                                .color(AppColors::TEXT_SECONDARY)
+                        );
+                        
+                        ui.add_space(24.0); // Reduzi de 40.0 para 24.0
+                        
+                        // Estados
+                        let is_converting = *self.is_converting.lock().unwrap();
+                        let status = self.status.lock().unwrap().clone();
+                        let has_file = self.pdf_path.is_some();
+                        
+                        // --- CARD PRINCIPAL ---
+                        let card_color = if is_converting {
+                             AppColors::CARD_BG
+                        } else if status.is_success {
+                             AppColors::SUCCESS_BG
+                        } else {
+                             AppColors::CARD_BG
+                        };
+                        
+                        let border_color = if is_converting {
+                            AppColors::PRIMARY
+                        } else if status.is_success {
+                            AppColors::SUCCESS
+                        } else if has_file {
+                            AppColors::PRIMARY
+                        } else {
+                            AppColors::CARD_BORDER
+                        };
 
-                } else {
-                    // Estado Inicial ou Erro
-                    if status.is_error {
-                        ui.label(egui::RichText::new(&status.message).color(egui::Color32::RED));
-                        ui.add_space(10.0);
-                    }
+                        let card_response = egui::Frame::group(ui.style())
+                            .inner_margin(30.0) // Reduzi de 40.0 para 30.0
+                            .rounding(16.0)
+                            .stroke(egui::Stroke::new(2.0, border_color))
+                            .fill(card_color)
+                            .show(ui, |ui| {
+                                ui.set_min_width(ui.available_width());
+                                ui.set_min_height(140.0);
+                                
+                                ui.vertical_centered(|ui| {
+                                    if is_converting {
+                                        ui.spinner();
+                                        ui.add_space(16.0);
+                                        
+                                        // Custom Progress Bar Dark
+                                        let w = ui.available_width();
+                                        let h = 8.0;
+                                        let (rect, _) = ui.allocate_exact_size(egui::vec2(w, h), egui::Sense::hover());
+                                        
+                                        ui.painter().rect_filled(rect, 4.0, AppColors::PROGRESS_BG);
+                                        if status.progress > 0.0 {
+                                            let fill_w = w * status.progress;
+                                            let fill_rect = egui::Rect::from_min_size(rect.min, egui::vec2(fill_w, h));
+                                            ui.painter().rect_filled(fill_rect, 4.0, AppColors::PRIMARY);
+                                        }
+                                        
+                                        ui.add_space(12.0);
+                                        ui.label(egui::RichText::new(&status.message).color(AppColors::TEXT_SECONDARY));
+                                        
+                                    } else if status.is_success {
+                                        ui.label(egui::RichText::new("🚀 Sucesso!").size(24.0).strong().color(AppColors::SUCCESS));
+                                        ui.add_space(8.0);
+                                        if let Some(path) = &self.output_path {
+                                            ui.label(
+                                                egui::RichText::new(path.file_name().unwrap_or_default().to_string_lossy())
+                                                    .monospace()
+                                                    .color(AppColors::TEXT_PRIMARY)
+                                            );
+                                        }
+                                    } else if let Some(path) = &self.pdf_path {
+                                        ui.label(egui::RichText::new("📄 Arquivo Pronto").size(20.0).strong().color(AppColors::PRIMARY));
+                                        ui.add_space(8.0);
+                                        ui.label(
+                                            egui::RichText::new(path.file_name().unwrap_or_default().to_string_lossy())
+                                                .size(16.0)
+                                                .color(AppColors::TEXT_PRIMARY)
+                                        );
+                                        ui.add_space(12.0);
+                                        ui.label(egui::RichText::new("Clique para alterar").size(12.0).color(AppColors::TEXT_SECONDARY));
+                                    } else {
+                                        ui.label(egui::RichText::new("📂").size(48.0).color(AppColors::TEXT_SECONDARY));
+                                        ui.add_space(16.0);
+                                        ui.label(egui::RichText::new("Clique para selecionar um PDF").size(18.0).strong().color(AppColors::TEXT_PRIMARY));
+                                    }
+                                });
+                            }).response;
 
-                    // Botão Converter
-                    let btn = egui::Button::new(egui::RichText::new("Converter para Keynote").size(18.0).strong())
-                        .min_size(egui::vec2(ui.available_width(), 50.0))
-                        .fill(if can_convert { egui::Color32::from_rgb(0, 122, 255) } else { egui::Color32::from_gray(200) });
-                    
-                    if ui.add_enabled(can_convert, btn).clicked() {
-                         // Define saída automática
-                        if self.output_path.is_none() {
-                             if let Some(path) = &self.pdf_path {
-                                let mut output = path.clone();
-                                output.set_extension("key");
-                                self.output_path = Some(output);
-                             }
+                        if !is_converting && !status.is_success {
+                            if card_response.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if card_response.interact(egui::Sense::click()).clicked() {
+                                self.select_pdf();
+                            }
                         }
-                        self.start_conversion(ctx.clone());
-                    }
-                }
-            });
+
+                        if status.is_error {
+                            ui.add_space(16.0);
+                            egui::Frame::none()
+                                .fill(AppColors::ERROR_BG)
+                                .inner_margin(12.0)
+                                .rounding(8.0)
+                                .show(ui, |ui| {
+                                    ui.label(egui::RichText::new(format!("Erro: {}", status.message)).color(AppColors::ERROR));
+                                });
+                        }
+
+                        ui.add_space(32.0); // Reduzi margem bottom
+
+                        // --- ACTIONS ---
+                        if !is_converting {
+                            if status.is_success {
+                                ui.horizontal(|ui| {
+                                    ui.columns(2, |cols| {
+                                        cols[0].vertical_centered_justified(|ui| {
+                                            let btn = egui::Button::new(
+                                                egui::RichText::new("📂 Abrir Pasta").strong().color(egui::Color32::BLACK)
+                                            )
+                                            .min_size(egui::vec2(0.0, 50.0))
+                                            .fill(AppColors::PRIMARY)
+                                            .rounding(10.0);
+                                            
+                                            if ui.add(btn).clicked() {
+                                                if let Some(path) = &self.output_path {
+                                                     let _ = Command::new("open").arg("-R").arg(path).spawn();
+                                                }
+                                            }
+                                        });
+                                        
+                                        cols[1].vertical_centered_justified(|ui| {
+                                            let btn = egui::Button::new(
+                                                egui::RichText::new("🔄 Novo").strong().color(AppColors::TEXT_PRIMARY)
+                                            )
+                                            .min_size(egui::vec2(0.0, 50.0))
+                                            .fill(egui::Color32::TRANSPARENT)
+                                            .stroke(egui::Stroke::new(1.0, AppColors::CARD_BORDER))
+                                            .rounding(10.0);
+                                            
+                                            if ui.add(btn).clicked() {
+                                                self.pdf_path = None;
+                                                self.output_path = None;
+                                                let mut s = self.status.lock().unwrap();
+                                                s.is_success = false;
+                                                s.message = String::new();
+                                            }
+                                        });
+                                    });
+                                });
+                            } else {
+                                let btn_text = if has_file { "Converter agora" } else { "Selecione um arquivo" };
+                                let btn_color = if has_file { AppColors::PRIMARY } else { AppColors::CARD_BORDER };
+                                let txt_color = if has_file { egui::Color32::BLACK } else { AppColors::TEXT_SECONDARY };
+                                
+                                let btn = egui::Button::new(
+                                    egui::RichText::new(btn_text).size(18.0).strong().color(txt_color)
+                                )
+                                .min_size(egui::vec2(ui.available_width(), 56.0))
+                                .fill(btn_color)
+                                .rounding(12.0);
+                                
+                                if ui.add_enabled(has_file, btn).clicked() {
+                                    if self.output_path.is_none() {
+                                         if let Some(path) = &self.pdf_path {
+                                            let mut output = path.clone();
+                                            output.set_extension("key");
+                                            self.output_path = Some(output);
+                                         }
+                                    }
+                                    self.start_conversion(ctx.clone());
+                                }
+                            }
+                        }
+                    });
+                });
         });
     }
 }
