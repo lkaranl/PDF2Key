@@ -67,6 +67,7 @@ impl PdfProcessor {
     }
 
     /// Retorna o número de páginas no PDF
+    #[allow(dead_code)]
     pub fn page_count(&self, pdf_path: &Path) -> Result<usize> {
         let document = self.pdfium
             .load_pdf_from_file(pdf_path, None)
