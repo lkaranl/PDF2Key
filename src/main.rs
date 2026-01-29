@@ -17,6 +17,7 @@ use std::process::Command;
 #[allow(dead_code)]
 struct AppColors;
 
+#[allow(dead_code)]
 impl AppColors {
     // Fundo Principal (Deep Blue/Black)
     const BG_MAIN: egui::Color32 = egui::Color32::from_rgb(13, 17, 23); // GitHub Dark Dimmed style
@@ -396,8 +397,8 @@ fn convert_pdf_to_keynote(
     // Carrega PDFium
     let processor = pdf_processor::PdfProcessor::new()?;
     
-    // Renderiza
-    let images = processor.render_pages(pdf_path, 200)?;
+    // Renderiza com alta qualidade (300 DPI)
+    let images = processor.render_pages(pdf_path, 300)?;
     let total_pages = images.len();
     
     let mut image_paths = Vec::new();
